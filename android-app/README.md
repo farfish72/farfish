@@ -18,9 +18,9 @@ This is a WebView wrapper that loads the FarFISH Next.js web app and provides na
 
 ### Prerequisites
 
-- Android Studio (Electric Eel or later)
-- JDK 17+
-- Android SDK (API 24+)
+- Android Studio (Hedgehog or later)
+- JDK 21
+- Android SDK (API 28+)
 
 ### Setup
 
@@ -39,10 +39,11 @@ This is a WebView wrapper that loads the FarFISH Next.js web app and provides na
    File → Sync Project with Gradle Files
    ```
 
-4. **Update web app URL in MainActivity.java:**
+4. **Verify web app URL in MainActivity.java:**
    ```java
-   private static final String APP_URL = "https://your-deployment.vercel.app";
+   private static final String APP_URL = "https://farfish.vercel.app";
    ```
+   (Already configured correctly)
 
 ### Build
 
@@ -100,12 +101,12 @@ android-app/
 
 **Method 1: Direct in MainActivity.java**
 ```java
-private static final String APP_URL = "https://farfish-android.vercel.app";
+private static final String APP_URL = "https://farfish.vercel.app";
 ```
 
 **Method 2: BuildConfig (app/build.gradle)**
 ```gradle
-buildConfigField "String", "APP_URL", "\"https://farfish-android.vercel.app\""
+buildConfigField "String", "APP_URL", "\"https://farfish.vercel.app\""
 ```
 Then in MainActivity.java:
 ```java
@@ -322,11 +323,12 @@ implementation 'androidx.webkit:webkit:1.9.0'
 
 ## Minimum Requirements
 
-- **Min SDK:** 24 (Android 7.0 Nougat)
+- **Min SDK:** 28 (Android 9.0 Pie)
 - **Target SDK:** 34 (Android 14)
 - **Compile SDK:** 34
+- **JDK:** 21
 
-**Coverage:** ~97% of active Android devices (as of 2024)
+**Coverage:** ~95% of active Android devices (as of 2024)
 
 ## Performance
 
@@ -390,8 +392,8 @@ implementation 'androidx.webkit:webkit:1.9.0'
 - Invalidate caches: File → Invalidate Caches → Restart
 
 **Java version mismatch:**
-- Use JDK 17 (not 8 or 11)
-- Set in Android Studio: File → Project Structure → SDK Location
+- Use JDK 21
+- Set in Android Studio: File → Project Structure → SDK Location → Gradle JDK
 
 ### Runtime Errors
 

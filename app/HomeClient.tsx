@@ -103,8 +103,10 @@ const TOKEN_IDS = Array.from({ length: 16 }, (_, i) => i); // 0-15
 
 export default function HomeClient() {
   const { address, isConnected, chainId } = useAccount();
-  const { connect, connectors, isPending: isConnecting } = useConnect();
+  const { connectAsync, connectors, isPending: isConnectPending } = useConnect();
   const { showError, showSuccess } = useToast();
+  const [isConnectingManual, setIsConnectingManual] = useState(false);
+  const isConnecting = isConnectingManual || isConnectPending;
 
   // State
   const [supplyInfo, setSupplyInfo] = useState<SupplyInfo[]>([]);
@@ -453,11 +455,51 @@ export default function HomeClient() {
     }
   }, [mintError, showError]);
 
-  const handleConnect = useCallback(() => {
-    const connector = connectors[0];
-    if (!connector) return;
-    connect({ connector });
-  }, [connect, connectors]);
+  const handleConnectWallet = useCallback(async () => {
+    setIsConnectingManual(true);
+    const timeout = setTimeout(() => {
+      setIsConnectingManual(false);
+    }, 45000);
+
+    try {
+      const hasInjected = typeof window !== "undefined" && Boolean((window as any).ethereum);
+      const injectedConn = connectors.find((c) => c.id === "injected");
+      const walletConnectConn = connectors.find((c) => c.id === "walletConnect");
+
+      const connectorToUse = hasInjected && injectedConn
+        ? injectedConn
+        : walletConnectConn || connectors[0];
+
+      if (!connectorToUse) {
+        showError("No wallet connector found. Please install a Web3 wallet.");
+        return;
+      }
+
+      await connectAsync({ connector: connectorToUse });
+      showSuccess("Wallet connected successfully!");
+    } catch (err: any) {
+      console.warn("Wallet connect error:", err);
+      const msg = err?.message || String(err);
+      if (
+        msg.includes("rejected") ||
+        msg.includes("User rejected") ||
+        err?.name === "UserRejectedRequestError"
+      ) {
+        showError("Connection rejected by user");
+      } else if (
+        msg.includes("closed") ||
+        msg.includes("cancelled") ||
+        msg.includes("Connection request reset")
+      ) {
+        showError("Connection cancelled");
+      } else {
+        showError(err?.shortMessage || err?.message || "Failed to connect wallet");
+      }
+    } finally {
+      clearTimeout(timeout);
+      setIsConnectingManual(false);
+    }
+  }, [connectAsync, connectors, showError, showSuccess]);
 
   const handleMint = useCallback(async () => {
     // Clear previous errors
@@ -745,92 +787,146 @@ export default function HomeClient() {
           </div>
         </div>
 
-        {/* NFT Minting Section */}
-        <div className="exchange-panel p-5 shadow-[0_12px_30px_rgba(0,0,0,0.18)]">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-xl font-bold text-text">
-                Get Your NFT
-              </h2>
-              <p className="text-muted text-xs">
-                {totalMaxSupply ? `${totalMaxSupply.toLocaleString()} total · 4 rarities` : "Fetching supply…"}
+        {/* Connect Wallet Section - Shown FIRST when not connected */}
+        {!isConnected || !address ? (
+          <div className="exchange-panel p-5 shadow-[0_12px_30px_rgba(0,0,0,0.18)]">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-bold text-text">
+                  Connect Wallet
+                </h2>
+                <p className="text-muted text-xs">
+                  Connect your Web3 wallet to access Mint Premium Pass & rewards
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-surface bg-ink p-5 mb-5 text-center">
+              <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-surface-raised flex items-center justify-center border border-muted/30">
+                <AppIcon icon={RocketLaunch} size="lg" weight="fill" className="text-accent" />
+              </div>
+              <h3 className="text-base font-bold text-white mb-1">
+                Wallet Connection Required
+              </h3>
+              <p className="text-xs text-muted max-w-xs mx-auto leading-relaxed">
+                Connect your non-custodial wallet on Base network to unlock Mint Premium Pass, daily chests, and rewards.
               </p>
             </div>
-          </div>
 
-          {!NFT_CONTRACT_ADDRESS && (
-            <div className="mb-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/20">
-              <div className="flex items-center gap-3">
-                <AppIcon icon={Warning} size="lg" weight="fill" />
-                <div>
-                  <p className="font-semibold text-red-300">Contract Not Configured</p>
-                  <p className="text-xs text-red-400">Minting unavailable</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Stats Grid */}
-          <div className="grid grid-cols-3 gap-2 mb-6">
-            <div className="rounded-lg border border-surface bg-ink p-3 text-center">
-              <div className="text-2xl font-bold text-positive">
-                {loadingSupplies ? "..." : totalMinted.toLocaleString()}
-              </div>
-              <div className="exchange-label">Minted</div>
-            </div>
-            <div className="rounded-lg border border-surface bg-ink p-3 text-center">
-              <div className="text-2xl font-bold text-accent">
-                {loadingSupplies ? "..." : `${mintedProgress.toFixed(1)}%`}
-              </div>
-              <div className="exchange-label">Progress</div>
-            </div>
-            <div className="rounded-lg border border-surface bg-ink p-3 text-center">
-              <div className="text-2xl font-bold text-text">
-                {loadingSupplies ? "..." : totalRemaining.toLocaleString()}
-              </div>
-              <div className="exchange-label">Left</div>
-            </div>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="mb-6">
-            <div className="flex justify-between items-center mb-2">
-              <span className="exchange-label">Supply minted</span>
-              <span className="exchange-label">{mintedProgress.toFixed(1)}%</span>
-            </div>
-            <div
-              className="h-1.5 w-full overflow-hidden rounded-full bg-surface"
-              role="progressbar"
-              aria-label="Mint progress"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={mintedProgress}
-              aria-valuetext={`${mintedProgress.toFixed(1)} percent minted`}
-            >
-              <div
-                className="h-full bg-accent transition-all duration-1000 ease-out"
-                style={{ width: `${mintedProgress}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Action Button */}
-          <div className="space-y-4">
             <button
               type="button"
-              onClick={handleMint}
-              disabled={primaryButtonDisabled}
-              className={primaryButtonClasses}
+              onClick={handleConnectWallet}
+              disabled={isConnecting}
+              className="w-full py-4 text-lg font-semibold rounded-xl bg-gradient-to-r from-teal to-mint text-ink transition hover:opacity-95 disabled:opacity-60 flex items-center justify-center gap-2"
             >
-              {isMinting || isMintPending || isMintConfirming ? (
-                <div className="flex items-center justify-center gap-2">
-                  <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                  {isMinting ? "Preparing..." : isMintPending ? "Confirming..." : "Processing..."}
-                </div>
+              {isConnecting ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  Connecting...
+                </>
               ) : (
-                primaryButtonLabel
+                "Connect Wallet"
               )}
             </button>
+          </div>
+        ) : (
+          /* Mint Premium Pass Section - Shown ONLY after wallet is connected & verified */
+          <div className="exchange-panel p-5 shadow-[0_12px_30px_rgba(0,0,0,0.18)]">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-bold text-text">
+                    Mint Premium Pass
+                  </h2>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-positive/10 text-positive border border-positive/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-positive" />
+                    Verified
+                  </span>
+                </div>
+                <p className="text-muted text-xs mt-0.5">
+                  {totalMaxSupply ? `${totalMaxSupply.toLocaleString()} total · 4 rarities` : "Fetching supply…"}
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="text-[11px] font-mono text-muted">
+                  {address.slice(0, 6)}...{address.slice(-4)}
+                </span>
+              </div>
+            </div>
+
+            {!NFT_CONTRACT_ADDRESS && (
+              <div className="mb-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/20">
+                <div className="flex items-center gap-3">
+                  <AppIcon icon={Warning} size="lg" weight="fill" />
+                  <div>
+                    <p className="font-semibold text-red-300">Contract Not Configured</p>
+                    <p className="text-xs text-red-400">Minting unavailable</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Stats Grid */}
+            <div className="grid grid-cols-3 gap-2 mb-6">
+              <div className="rounded-lg border border-surface bg-ink p-3 text-center">
+                <div className="text-2xl font-bold text-positive">
+                  {loadingSupplies ? "..." : totalMinted.toLocaleString()}
+                </div>
+                <div className="exchange-label">Minted</div>
+              </div>
+              <div className="rounded-lg border border-surface bg-ink p-3 text-center">
+                <div className="text-2xl font-bold text-accent">
+                  {loadingSupplies ? "..." : `${mintedProgress.toFixed(1)}%`}
+                </div>
+                <div className="exchange-label">Progress</div>
+              </div>
+              <div className="rounded-lg border border-surface bg-ink p-3 text-center">
+                <div className="text-2xl font-bold text-text">
+                  {loadingSupplies ? "..." : totalRemaining.toLocaleString()}
+                </div>
+                <div className="exchange-label">Left</div>
+              </div>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-2">
+                <span className="exchange-label">Supply minted</span>
+                <span className="exchange-label">{mintedProgress.toFixed(1)}%</span>
+              </div>
+              <div
+                className="h-1.5 w-full overflow-hidden rounded-full bg-surface"
+                role="progressbar"
+                aria-label="Mint progress"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={mintedProgress}
+                aria-valuetext={`${mintedProgress.toFixed(1)} percent minted`}
+              >
+                <div
+                  className="h-full bg-accent transition-all duration-1000 ease-out"
+                  style={{ width: `${mintedProgress}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Action Button */}
+            <div className="space-y-4">
+              <button
+                type="button"
+                onClick={handleMint}
+                disabled={primaryButtonDisabled}
+                className={primaryButtonClasses}
+              >
+                {isMinting || isMintPending || isMintConfirming ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                    {isMinting ? "Preparing..." : isMintPending ? "Confirming..." : "Processing..."}
+                  </div>
+                ) : (
+                  primaryButtonLabel
+                )}
+              </button>
 
               {lastMintedDisplay && (
                 <div className="p-4 rounded-2xl bg-green-500/10 border border-green-400/30">
@@ -851,14 +947,16 @@ export default function HomeClient() {
                 </div>
               )}
 
-            {priceDisplay && (
-              <div className="text-center">
-                <p className="text-sm text-white/70">
-                  Price: <span className="font-bold text-cyan-400">{priceDisplay.formattedPrice} {priceDisplay.symbol}</span> + gas
-                </p>
-              </div>
-            )}
+              {priceDisplay && (
+                <div className="text-center">
+                  <p className="text-sm text-white/70">
+                    Price: <span className="font-bold text-cyan-400">{priceDisplay.formattedPrice} {priceDisplay.symbol}</span> + gas
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
+        )}
 
           {toast && (
             <div className={`
@@ -874,7 +972,6 @@ export default function HomeClient() {
               </div>
             </div>
           )}
-        </div>
 
         {/* Why Mint Section */}
         <div className="app-panel shadow-2xl">

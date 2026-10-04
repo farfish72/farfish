@@ -4,7 +4,8 @@ import { http, createConfig, fallback } from "wagmi";
 import { base, mainnet } from "viem/chains";
 import { walletConnect, injected, coinbaseWallet } from "wagmi/connectors";
 
-const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "PLACEHOLDER_PROJECT_ID";
+const projectId =
+  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "6829b9ad661ef487af4d0c1bb5aa4a9e";
 
 // Multiple public Base mainnet RPC endpoints with fallback.
 // mainnet.base.org is rate-limited; these alternatives have higher limits.
@@ -24,20 +25,20 @@ export const wagmiConfig = createConfig({
     ]),
   },
   connectors: [
+    injected({ shimDisconnect: true }),
     walletConnect({
       projectId,
       metadata: {
         name: "FarFISH",
         description: "Daily habit-building app on Base",
-        url: "https://farfish.app",
-        icons: ["https://farfish.app/icon.png"],
+        url: "https://farfish.vercel.app",
+        icons: ["https://farfish.vercel.app/farfish-logo.png"],
       },
-      showQrModal: false,
+      showQrModal: true,
     }),
-    injected({ shimDisconnect: true }),
     coinbaseWallet({
       appName: "FarFISH",
-      appLogoUrl: "https://farfish.app/icon.png",
+      appLogoUrl: "https://farfish.vercel.app/farfish-logo.png",
     }),
   ],
   ssr: true,

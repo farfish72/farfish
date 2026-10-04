@@ -45,7 +45,7 @@ const ROTATING_CHEST_TEXTS = [
   "Another Bronze Chest day\n\nFarFISH rewards show up daily.\nFree FRH, claim yours.",
 ];
 
-const FARFISH_MINIAPP_URL = "https://farfish-miniapp5.vercel.app";
+const FARFISH_MINIAPP_URL = "https://farfish.vercel.app";
 
 /* ---------------- page ---------------- */
 export default function ChestPage() {

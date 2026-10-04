@@ -28,14 +28,15 @@ export default function Header({ title }: { title: string }) {
           />
         </div>
 
-        <Link
-          href="https://warpcast.com/farf"
+        <a
+          href="https://farfish.xyz"
           target="_blank"
+          rel="noopener noreferrer"
           className="app-control inline-flex items-center gap-1 border border-muted text-xs font-semibold text-white transition-colors hover:border-accent hover:text-accent"
         >
-          Follow
+          Find us
           <AppIcon icon={ArrowSquareOut} size="sm" weight="bold" aria-hidden="true" />
-        </Link>
+        </a>
       </div>
 
       <div className="mt-3 flex items-end justify-between">

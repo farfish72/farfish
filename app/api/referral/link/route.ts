@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         bound: false,
         referrer: "",
-        link: `https://farfish-miniapp5.vercel.app?ref=${wallet.slice(-8).toLowerCase()}`,
+        link: `https://farfish.vercel.app?ref=${wallet.slice(-8).toLowerCase()}`,
         referralsCount: 0,
       });
     }
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
     const referralsCount = Number(countRaw ?? 0);
 
     // Referral link format for standalone app
-    const link = `https://farfish-miniapp5.vercel.app?ref=${refCode}`;
+    const link = `https://farfish.vercel.app?ref=${refCode}`;
 
     return NextResponse.json({
       bound,
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       bound: false,
       referrer: "",
-      link: `https://farfish-miniapp5.vercel.app?ref=${wallet.slice(-8).toLowerCase()}`,
+      link: `https://farfish.vercel.app?ref=${wallet.slice(-8).toLowerCase()}`,
       referralsCount: 0,
     });
   }
