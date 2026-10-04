@@ -1,0 +1,180 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-ink: #0b0e11;
+  --color-surface: #181a20;
+  --color-surface-raised: #20232b;
+  --color-accent: #f0b90b;
+  --color-text: #f5f5f5;
+  --color-muted: #848e9c;
+  --color-positive: #0ecb81;
+  --color-mint: #3be6c1;
+  --color-teal: #00d4c4;
+  --rgb-ink: 11 14 17;
+  --rgb-surface-raised: 32 35 43;
+  --rgb-accent: 240 185 11;
+  --rgb-text: 245 245 245;
+  --rgb-muted: 132 142 156;
+  --rgb-positive: 14 203 129;
+  --rgb-mint: 59 230 193;
+  --rgb-teal: 0 212 196;
+
+  --space-page: 1rem;
+  --space-panel: 1rem;
+  --space-section: 1.5rem;
+  --space-control: 0.75rem;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --radius-panel: 0.75rem;
+  --radius-control: 0.5rem;
+  --font-display: "Trebuchet MS";
+  --font-body: "Trebuchet MS";
+
+  /* Backward-compatible aliases for existing route styles. */
+  --ink: var(--color-ink);
+  --surface: var(--color-surface);
+  --gold: var(--color-accent);
+  --text: var(--color-text);
+  --muted: var(--color-muted);
+  --positive: var(--color-positive);
+  --button-mint: var(--color-mint);
+  --button-teal: var(--color-teal);
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--color-ink);
+  color: var(--color-text);
+  font-family: var(--font-body), sans-serif;
+}
+
+/* The product uses white text everywhere; status is communicated by surfaces and icons. */
+body,
+body * {
+  color: var(--color-text) !important;
+}
+
+body *::placeholder {
+  color: var(--color-text) !important;
+}
+
+* {
+  box-sizing: border-box;
+  border-color: var(--color-ink) !important;
+}
+
+body, input, button {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button, a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@layer components {
+  .app-page {
+    width: 100%;
+    padding-inline: var(--space-page);
+  }
+
+  .app-panel {
+    background: var(--color-surface);
+    background-image: none;
+    border: 1px solid rgb(var(--rgb-muted) / 0.25);
+    border-radius: var(--radius-panel);
+    padding: var(--space-panel);
+  }
+
+  .app-control {
+    min-height: 2.75rem;
+    border-radius: var(--radius-control);
+    padding: 0 var(--space-control);
+  }
+
+  .app-button {
+    min-height: 2.75rem;
+    border: 1px solid var(--color-teal);
+    border-radius: var(--radius-control);
+    background: linear-gradient(to right, var(--color-teal), var(--color-mint));
+    color: var(--color-text);
+    font-weight: 700;
+    padding-inline: var(--space-control);
+    transition: filter 150ms ease;
+  }
+
+  .app-button:hover:not(:disabled) {
+    filter: brightness(1.05);
+  }
+
+  .app-button:focus-visible,
+  .app-control:focus-visible {
+    outline: 2px solid var(--color-mint);
+    outline-offset: 2px;
+  }
+
+  .game-water {
+    border: 3px solid var(--color-teal);
+    background: linear-gradient(180deg, var(--color-teal), var(--color-surface));
+  }
+
+  .exchange-panel {
+    background: var(--surface);
+    border: 1px solid var(--surface);
+    border-radius: 8px;
+  }
+
+  .exchange-label {
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* Every text/action button uses the same FarFISH treatment. */
+  button:not([aria-label]) {
+    min-height: 2.75rem;
+    border: 2px solid transparent !important;
+    border-radius: var(--radius-control) !important;
+    background:
+      linear-gradient(var(--color-surface), var(--color-surface)) padding-box,
+      linear-gradient(to right, var(--color-teal), var(--color-mint)) border-box !important;
+    color: var(--color-text) !important;
+  }
+
+  button:not([aria-label]):disabled {
+    border: 2px solid transparent !important;
+    background:
+      linear-gradient(var(--color-surface), var(--color-surface)) padding-box,
+      linear-gradient(to right, var(--color-muted), var(--color-muted)) border-box !important;
+    color: var(--color-text) !important;
+    opacity: 0.5;
+  }
+
+  /* Icon-only controls stay quiet and readable without competing with actions. */
+  button[aria-label] {
+    background: var(--color-surface) !important;
+    border: 1px solid rgb(var(--rgb-muted) / 0.25) !important;
+    color: var(--color-text) !important;
+  }
+}
+
+@keyframes jump {
+  0% {
+    transform: translateX(-50%) translateY(0);
+  }
+  50% {
+    transform: translateX(-50%) translateY(-30px);
+  }
+  100% {
+    transform: translateX(-50%) translateY(0);
+  }
+}
