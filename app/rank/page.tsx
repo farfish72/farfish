@@ -34,7 +34,8 @@ export default function LeaderboardPage() {
         throw new Error(text || "Failed to load leaderboard");
       }
       const data = (await res.json()) as any[];
-      console.log('Leaderboard API returned:', data.length, 'entries');
+      console.log('Leaderboard API returned:', data);
+      console.log('Data type:', typeof data, 'Is array:', Array.isArray(data));
       
       // Transform data: use rewards from API directly
       const transformed: LeaderboardEntry[] = data.map((entry) => ({
@@ -140,8 +141,8 @@ export default function LeaderboardPage() {
             </table>
           </div>
 
-          {/* Show user's own rank ONLY if outside top 100 */}
-          {userEntry && userEntry.rank > 100 && (
+          {/* Show user's own rank if wallet connected */}
+          {address && userEntry && (
             <div className="mt-4 pt-4 border-t border-white/10">
               <h3 className="text-sm font-semibold mb-2 text-white/80">Your Rank</h3>
               <div className="rounded-lg border border-teal/30 bg-teal/5 p-3">

@@ -153,6 +153,26 @@ export async function POST(req: NextRequest) {
     // Increment unified referral count for referrer
     const newCount = await incrKey(`refcount:${referrer}`);
 
+    // ✨ NEW: Update sorted set for atomic leaderboard (CRITICAL!)
+    try {
+      await upstashRequestDirect(`zincrby/leaderboard/1/${encodeURIComponent(referrer)}`, {
+        method: 'POST'
+      });
+      console.log(`✅ [REFERRAL] Updated sorted set for ${referrer}`);
+    } catch (error) {
+      console.error(`⚠️ [REFERRAL] Failed to update sorted set:`, error);
+      // Continue - refcount is still updated
+    }
+
+    // Add new referee to sorted set with score 0 (if not exists)
+    try {
+      await upstashRequestDirect(`zadd/leaderboard/nx/0/${encodeURIComponent(wallet)}`, {
+        method: 'POST'
+      });
+    } catch (error) {
+      console.error(`⚠️ [REFERRAL] Failed to add referee to sorted set:`, error);
+    }
+
     // Add referrer to set:referrers if this is their first referral (count becomes 1)
     // This ensures they appear in leaderboard queries
     if (newCount === 1) {
@@ -174,4 +194,33 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   }
+}
+
+// Helper for direct Upstash requests
+async function upstashRequestDirect(path: string, init?: RequestInit) {
+  const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  
+  if (!upstashUrl || !upstashToken) {
+    throw new Error('Upstash credentials missing');
+  }
+  
+  const baseUrl = upstashUrl.endsWith("/") ? upstashUrl.slice(0, -1) : upstashUrl;
+  
+  const res = await fetch(`${baseUrl}/${path}`, {
+    method: init?.method ?? "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${upstashToken}`,
+      ...(init?.headers ?? {}),
+    },
+    ...init,
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Upstash request failed (${res.status}): ${text}`);
+  }
+
+  return await res.json();
 }

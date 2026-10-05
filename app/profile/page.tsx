@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback, Suspense } from "react";
-import { useAccount, useChainId, useConnect } from "wagmi";
+import { useAccount, useChainId, useConnect, useDisconnect } from "wagmi";
 import { base } from "viem/chains";
 import { getPublicClient } from "@wagmi/core";
 import { wagmiConfig } from "../lib/wagmi";
@@ -13,6 +13,9 @@ import {
   Crown, 
   Ranking,
   Lock,
+  Handshake,
+  SignOut,
+  Copy,
 } from "@phosphor-icons/react";
 import Header from "../components/Header";
 import { NFT_CONTRACT_ADDRESS } from "../constants";
@@ -56,7 +59,7 @@ const faqItems = [
   },
   {
     question: "7. How do referrals work?",
-    answer: "Share your referral link to earn 20 tokens per new user. Hit milestones (5, 10, 30, 50 referrals) for bonus rewards on top.",
+    answer: "Share your referral link/code to earn 20 tokens per new user.",
   },
   {
     question: "8. When can I trade FRH?",
@@ -71,10 +74,128 @@ const formatStatValue = (value: number | string | undefined, suffix = "") => {
 
 const TOKEN_IDS = Array.from({ length: 16 }, (_, i) => i); // 0-15
 
+// Manual Refer Code Bind Component
+function ManualReferCodeBind({ address }: { address: string }) {
+  const [referCode, setReferCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [hasReferrer, setHasReferrer] = useState<boolean | null>(null);
+  const [checkingReferrer, setCheckingReferrer] = useState(true);
+  const { showSuccess, showError } = useToast();
+
+  // Check if user already has a referrer
+  useEffect(() => {
+    async function checkReferrer() {
+      if (!address) return;
+      
+      setCheckingReferrer(true);
+      try {
+        const res = await fetch(`/api/referral/check?wallet=${address}`, {
+          cache: "no-store"
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          setHasReferrer(data.hasReferrer || false);
+        } else {
+          setHasReferrer(false);
+        }
+      } catch (error) {
+        console.error("Failed to check referrer:", error);
+        setHasReferrer(false);
+      } finally {
+        setCheckingReferrer(false);
+      }
+    }
+    
+    checkReferrer();
+  }, [address]);
+
+  const handleBindReferCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!referCode.trim()) {
+      showError("Please enter a referral code");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/referral/record", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          wallet: address,
+          refCode: referCode.trim().toLowerCase(),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        showSuccess("Referral code bound successfully! 🎉");
+        setHasReferrer(true);
+        setReferCode("");
+        
+        // Trigger refresh of stats
+        window.dispatchEvent(new Event("farfish:referral-bound"));
+      } else {
+        showError(data.error || "Failed to bind referral code");
+      }
+    } catch (error) {
+      console.error("Bind referral error:", error);
+      showError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Don't show if already has referrer
+  if (checkingReferrer) {
+    return (
+      <div className="rounded-xl border border-white/10 bg-white/5 p-4 animate-pulse">
+        <div className="h-4 bg-white/10 rounded w-1/2 mb-2"></div>
+        <div className="h-3 bg-white/10 rounded w-3/4"></div>
+      </div>
+    );
+  }
+
+  if (hasReferrer) {
+    return null; // Hide section if already referred
+  }
+
+  return (
+    <div className="rounded-xl border border-teal/30 bg-teal/5 p-4">
+      <h3 className="text-sm font-semibold mb-3 flex items-center gap-2 text-white">
+        <Handshake size={16} weight="bold" />
+        Enter Referral Code
+      </h3>
+      <form onSubmit={handleBindReferCode} className="flex flex-col sm:flex-row gap-3">
+        <input
+          type="text"
+          value={referCode}
+          onChange={(e) => setReferCode(e.target.value)}
+          placeholder="e.g. 7a59d836"
+          maxLength={8}
+          disabled={loading}
+          className="flex-1 px-4 py-3 rounded-lg bg-[#1a1a1a] border border-white/30 text-white text-base placeholder:text-white/50 focus:outline-none focus:border-teal focus:ring-2 focus:ring-teal/30 disabled:opacity-60"
+        />
+        <button
+          type="submit"
+          disabled={loading || !referCode.trim()}
+          className="px-6 py-3 rounded-lg bg-gradient-to-r from-teal to-mint text-ink font-bold text-base hover:opacity-90 transition disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
+        >
+          {loading ? "Binding..." : "Bind Code"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 function ProfilePageContent() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const { connectAsync, connectors, isPending: isConnectPending } = useConnect();
+  const { disconnect } = useDisconnect();
   const { showError, showSuccess } = useToast();
   const [openIdx, setOpenIdx] = useState<number | null>(0);
   const [toast, setToast] = useState<ToastState>(null);
@@ -93,6 +214,22 @@ function ProfilePageContent() {
   const getUserId = () => {
     if (!address) return "Guest";
     return address.slice(-8).toLowerCase();
+  };
+
+  // Handle wallet disconnect
+  const handleDisconnect = () => {
+    disconnect();
+    showSuccess("Wallet disconnected");
+  };
+
+  // Handle copy User ID
+  const handleCopyUserId = () => {
+    const userId = getUserId();
+    navigator.clipboard.writeText(userId).then(() => {
+      showSuccess("User ID copied!");
+    }).catch(() => {
+      showError("Failed to copy User ID");
+    });
   };
 
   // Get Tier based on active stakes (Trust Anchor pattern)
@@ -296,11 +433,25 @@ function ProfilePageContent() {
               </div>
               
               <div className="flex-1">
-                <div className="text-lg font-bold text-white mb-1">
-                  User ID: {getUserId()}
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="text-lg font-bold text-white">
+                    User ID: {getUserId()}
+                  </div>
+                  {/* NO teal/mint ring: disconnect and copy/clipboard icons are excluded from ring styling */}
+                  <button
+                    onClick={handleCopyUserId}
+                    aria-label="Copy User ID"
+                    className="inline-flex items-center justify-center p-0 !bg-transparent !border-0 hover:opacity-80 transition"
+                    title="Copy User ID"
+                  >
+                    <Copy size={16} weight="bold" className="text-white" />
+                  </button>
                 </div>
                 <div className="text-sm text-white/60">
                   Tier: {getTier()}
+                </div>
+                <div className="text-xs text-white/50">
+                  Referral code is your User ID.
                 </div>
               </div>
             </div>
@@ -311,11 +462,22 @@ function ProfilePageContent() {
         <section className="app-panel">
           {isConnected && address ? (
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-lg bg-white/15 border border-white/30 flex items-center justify-center">
-                  <AppIcon icon={Wallet} size="md" weight="bold" className="text-white" />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 rounded-lg bg-white/15 border border-white/30 flex items-center justify-center">
+                    <AppIcon icon={Wallet} size="md" weight="bold" className="text-white" />
+                  </div>
+                  <span className="text-sm font-medium text-white">Wallet Stats</span>
                 </div>
-                <span className="text-sm font-medium text-white">Connected to Base</span>
+                {/* NO teal/mint ring: disconnect and copy/clipboard icons are excluded from ring styling */}
+                <button
+                  onClick={handleDisconnect}
+                  aria-label="Disconnect wallet"
+                  className="w-10 h-10 rounded-lg bg-white/15 border border-white/30 flex items-center justify-center hover:bg-white/25 transition"
+                  title="Disconnect wallet"
+                >
+                  <SignOut size={16} weight="bold" className="text-white" />
+                </button>
               </div>
               
               {/* Wallet Stats Grid */}
@@ -339,7 +501,7 @@ function ProfilePageContent() {
                           {stat.label}
                         </p>
                       </div>
-                      <p className="text-lg font-bold text-white">{stat.value}</p>
+                      <p className="text-lg font-bold text-white pl-10">{stat.value}</p>
                     </div>
                   );
                 })}
@@ -350,6 +512,9 @@ function ProfilePageContent() {
                   Some stats failed to load. Try again later.
                 </p>
               )}
+
+              {/* Manual Refer Code Bind Section */}
+              <ManualReferCodeBind address={address} />
             </div>
           ) : (
             <button
