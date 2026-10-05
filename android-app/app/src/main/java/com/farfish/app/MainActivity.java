@@ -153,15 +153,18 @@ public class MainActivity extends AppCompatActivity {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
                 
-                // Handle WalletConnect deep links
-                if (url.startsWith("wc:") || url.startsWith("ethereum:")) {
+                // Handle all non-http(s) schemes as external intents
+                // This includes: wc:, ethereum:, metamask://, trust://, bitkeep://, etc.
+                if (!url.startsWith("http://") && !url.startsWith("https://")) {
                     Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     try {
                         startActivity(intent);
+                        android.util.Log.d("WalletConnect", "Opened deep link: " + url);
                     } catch (Exception e) {
+                        android.util.Log.e("WalletConnect", "Failed to open deep link: " + url, e);
                         Toast.makeText(MainActivity.this, 
-                            "No wallet app found. Please install a Web3 wallet.", 
+                            "No app found to handle this link. Please install the required wallet app.", 
                             Toast.LENGTH_LONG).show();
                     }
                     return true;
