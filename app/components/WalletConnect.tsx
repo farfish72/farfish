@@ -75,28 +75,22 @@ export default function WalletConnect() {
   return (
     <div className="w-full">
       <div className="app-panel mb-2">
-        <div className="flex items-center justify-between">
+        <div className={`flex items-center ${isConnected && address ? 'justify-between' : 'justify-center'}`}>
           <div>
-            <p className="text-sm font-semibold">Wallet</p>
             {isConnected && address ? (
-              <p className="text-xs text-white/60 mt-1">
-                {`${address.slice(0, 6)}...${address.slice(-4)}`}
-              </p>
-            ) : (
-              <p className="text-xs text-white/60 mt-1">
-                {errorMsg ? (
-                  <span className="text-red-400">{errorMsg}</span>
-                ) : (
-                  "Disconnected"
-                )}
-              </p>
-            )}
+              <>
+                <p className="text-sm font-semibold">Wallet</p>
+                <p className="text-xs text-white/60 mt-1">
+                  {`${address.slice(0, 6)}...${address.slice(-4)}`}
+                </p>
+              </>
+            ) : null}
           </div>
           <button
             type="button"
             onClick={isConnected ? () => disconnect() : handleConnect}
             disabled={isPending}
-            className={`px-3 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed ${
+            className={`w-full py-4 text-lg font-semibold rounded-xl flex items-center justify-center gap-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed ${
               isPending
                 ? "bg-white/10 text-white/60"
                 : isConnected

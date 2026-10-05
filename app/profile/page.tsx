@@ -1,19 +1,25 @@
 // app/profile/page.tsx
 "use client";
 
-import Image from "next/image";
 import { useMemo, useState, useEffect, useCallback, Suspense } from "react";
-import { useAccount, useChainId } from "wagmi";
+import { useAccount, useChainId, useConnect } from "wagmi";
 import { base } from "viem/chains";
 import { getPublicClient } from "@wagmi/core";
 import { wagmiConfig } from "../lib/wagmi";
-import { UserCircle } from "@phosphor-icons/react";
-import WalletConnect from "../components/WalletConnect";
+import { 
+  User,
+  Wallet, 
+  Fire, 
+  Crown, 
+  Ranking,
+  Lock,
+} from "@phosphor-icons/react";
 import Header from "../components/Header";
 import { NFT_CONTRACT_ADDRESS } from "../constants";
 import nftDropAbi from "../abi/nftDrop.json";
 import useUserStakes from "../hooks/useUserStakes";
 import { AppIcon } from "../components/ui";
+import { useToast } from "../providers/ToastProvider";
 
 type ToastState = { type: "error" | "success"; message: string } | null;
 
@@ -68,9 +74,14 @@ const TOKEN_IDS = Array.from({ length: 16 }, (_, i) => i); // 0-15
 function ProfilePageContent() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
+  const { connectAsync, connectors, isPending: isConnectPending } = useConnect();
+  const { showError, showSuccess } = useToast();
   const [openIdx, setOpenIdx] = useState<number | null>(0);
   const [toast, setToast] = useState<ToastState>(null);
   const { stakes } = useUserStakes();
+  const [isConnectingManual, setIsConnectingManual] = useState(false);
+
+  const isConnecting = isConnectingManual || isConnectPending;
 
   // Wallet-dependent stats (only loaded when wallet connected)
   const [liveStats, setLiveStats] = useState<LiveStats>({ nftsOwned: 0, chestStreak: 0, rank: null });
@@ -78,22 +89,63 @@ function ProfilePageContent() {
 
   const isBaseNetwork = chainId === base.id;
 
-  // Basic profile data (always available from localStorage)
-  const getUsername = () => {
-    const localUsername = typeof window !== "undefined" ? localStorage.getItem('username') : null;
-    if (localUsername && localUsername.trim()) {
-      return localUsername.trim();
-    }
-    return "Guest";
+  // Get User ID from wallet address (Rank page pattern)
+  const getUserId = () => {
+    if (!address) return "Guest";
+    return address.slice(-8).toLowerCase();
   };
 
-  const getAvatarUrl = () => {
-    const localImage = typeof window !== "undefined" ? localStorage.getItem('profileImage') : null;
-    if (localImage && localImage.trim()) {
-      return localImage;
-    }
-    return "/farfish-logo.png";
+  // Get Tier based on active stakes (Trust Anchor pattern)
+  const getTier = () => {
+    return stakes.length > 0 ? "Premium" : "Basic";
   };
+
+  // Handle wallet connection (same as home page)
+  const handleConnectWallet = useCallback(async () => {
+    setIsConnectingManual(true);
+    const timeout = setTimeout(() => {
+      setIsConnectingManual(false);
+    }, 45000);
+
+    try {
+      const hasInjected = typeof window !== "undefined" && Boolean((window as any).ethereum);
+      const injectedConn = connectors.find((c) => c.id === "injected");
+      const walletConnectConn = connectors.find((c) => c.id === "walletConnect");
+
+      const connectorToUse = hasInjected && injectedConn
+        ? injectedConn
+        : walletConnectConn || connectors[0];
+
+      if (!connectorToUse) {
+        showError("No wallet connector found. Please install a Web3 wallet.");
+        return;
+      }
+
+      await connectAsync({ connector: connectorToUse });
+      showSuccess("Wallet connected successfully!");
+    } catch (err: any) {
+      console.warn("Wallet connect error:", err);
+      const msg = err?.message || String(err);
+      if (
+        msg.includes("rejected") ||
+        msg.includes("User rejected") ||
+        err?.name === "UserRejectedRequestError"
+      ) {
+        showError("Connection rejected by user");
+      } else if (
+        msg.includes("closed") ||
+        msg.includes("cancelled") ||
+        msg.includes("Connection request reset")
+      ) {
+        showError("Connection cancelled");
+      } else {
+        showError(err?.shortMessage || err?.message || "Failed to connect wallet");
+      }
+    } finally {
+      clearTimeout(timeout);
+      setIsConnectingManual(false);
+    }
+  }, [connectAsync, connectors, showError, showSuccess]);
 
   // Wallet-dependent stats (only when wallet connected)
   type StatsErrorState = { nftsOwned: boolean; chestStreak: boolean; rank: boolean };
@@ -161,7 +213,8 @@ function ProfilePageContent() {
         });
         if (rankRes.ok) {
           const rankData = await rankRes.json();
-          rank = Number(rankData?.rank ?? 0) > 0 ? Number(rankData.rank) : null;
+          // API returns rank = 0 when user not found, otherwise actual rank number
+          rank = Number(rankData?.rank ?? 0);
         }
       } catch (error) {
         console.error("Failed to fetch rank:", error);
@@ -217,7 +270,7 @@ function ProfilePageContent() {
       },
       {
         label: "Rank",
-        value: loadingStats ? "…" : statsError.rank ? "Error" : (liveStats.rank && liveStats.rank > 0 ? `#${liveStats.rank}` : "Unranked"),
+        value: loadingStats ? "…" : statsError.rank ? "Error" : (liveStats.rank && liveStats.rank > 0 ? `#${liveStats.rank}` : "No rank"),
       },
     ],
     [liveStats, loadingStats, statsError, stakes.length]
@@ -234,60 +287,62 @@ function ProfilePageContent() {
       <Header title="Profile" />
 
       <div className="mt-4 space-y-4 flex-1 flex flex-col">
-        {/* USER PROFILE SECTION */}
-        <section className="app-panel">
-          <div className="flex items-start gap-4">
-            <div className="relative h-16 w-16 rounded-xl overflow-hidden border-2 border-white/30">
-              <Image
-                src={getAvatarUrl()}
-                alt="Profile"
-                width={64}
-                height={64}
-                className="object-cover w-full h-full"
-                unoptimized
-              />
-            </div>
-            
-            <div className="flex-1">
-              <div className="text-lg font-bold text-white mb-1">
-                {getUsername()}
+        {/* USER PROFILE SECTION - ONLY WHEN CONNECTED */}
+        {isConnected && address && (
+          <section className="app-panel">
+            <div className="flex items-start gap-4">
+              <div className="w-16 h-16 rounded-xl bg-white/15 border-2 border-white/30 flex items-center justify-center shadow-lg">
+                <User size={40} weight="bold" className="text-white" />
               </div>
-              <div className="text-sm text-white/60">
-                FarFISH Member
+              
+              <div className="flex-1">
+                <div className="text-lg font-bold text-white mb-1">
+                  User ID: {getUserId()}
+                </div>
+                <div className="text-sm text-white/60">
+                  Tier: {getTier()}
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* WALLET SECTION - CONDITIONAL */}
         <section className="app-panel">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-4 h-4 bg-green-500 rounded-full"></div>
-            <h3 className="text-lg font-semibold text-white">Wallet</h3>
-          </div>
-          
           {isConnected && address ? (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                <span className="text-sm text-green-300">Connected to Base</span>
+                <div className="w-10 h-10 rounded-lg bg-white/15 border border-white/30 flex items-center justify-center">
+                  <AppIcon icon={Wallet} size="md" weight="bold" className="text-white" />
+                </div>
+                <span className="text-sm font-medium text-white">Connected to Base</span>
               </div>
               
               {/* Wallet Stats Grid */}
-              <div className="grid grid-cols-2 gap-2">
-                {stats.map((stat) => (
-                  <div
-                    key={stat.label}
-                    className={`rounded-xl border border-white/10 bg-white/5 p-3 text-center ${
-                      loadingStats ? "animate-pulse" : ""
-                    }`}
-                  >
-                    <p className="text-[11px] uppercase tracking-wide text-white/60">
-                      {stat.label}
-                    </p>
-                    <p className="text-lg font-semibold mt-1">{stat.value}</p>
-                  </div>
-                ))}
+              <div className="grid grid-cols-2 gap-3">
+                {stats.map((stat, idx) => {
+                  const icons = [Crown, Lock, Fire, Ranking];
+                  const StatIcon = icons[idx];
+                  
+                  return (
+                    <div
+                      key={stat.label}
+                      className={`rounded-xl border border-white/10 bg-white/5 p-3 hover:scale-105 transition-all duration-300 ${
+                        loadingStats ? "animate-pulse" : ""
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-8 h-8 rounded-lg bg-white/15 border border-white/30 flex items-center justify-center shadow-sm flex-shrink-0">
+                          <AppIcon icon={StatIcon} size="sm" weight="bold" className="text-white" />
+                        </div>
+                        <p className="text-[11px] uppercase tracking-wide text-white/60 font-medium">
+                          {stat.label}
+                        </p>
+                      </div>
+                      <p className="text-lg font-bold text-white">{stat.value}</p>
+                    </div>
+                  );
+                })}
               </div>
               
               {Object.values(statsError).some(Boolean) && !loadingStats && (
@@ -297,10 +352,21 @@ function ProfilePageContent() {
               )}
             </div>
           ) : (
-            <div className="text-center py-4">
-              <p className="text-white/70 mb-4">Link your wallet to view stats and claim rewards.</p>
-              <WalletConnect />
-            </div>
+            <button
+              type="button"
+              onClick={handleConnectWallet}
+              disabled={isConnecting}
+              className="w-full py-4 text-lg font-semibold rounded-xl bg-gradient-to-r from-teal to-mint text-ink transition hover:opacity-95 disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {isConnecting ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                "Connect Wallet"
+              )}
+            </button>
           )}
         </section>
 

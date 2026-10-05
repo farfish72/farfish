@@ -51,7 +51,7 @@ export default function TrustAnchor({
     { icon: Fire,          label: "Streak",       value: `${formatNumber(streak)} days`  },
     { icon: Handshake,     label: "Referrals",    value: formatNumber(referrals)         },
     { icon: Coins,         label: "Balance",      value: totalHolding || "0 FRH"         },
-    { icon: ChartBar,      label: "Rank",         value: rank ? `#${rank}` : "Unranked" },
+    { icon: ChartBar,      label: "Rank",         value: rank && rank > 0 ? `#${rank}` : "No rank" },
     { icon: HourglassHigh, label: "Snapshot",     value: "~30 days"                      },
     { icon: tier === 'Premium' ? Crown : Medal, label: "Tier", value: tier               },
   ];
