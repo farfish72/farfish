@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { logWalletConnectionAttempt, logWalletConnectionError } from "../utils/walletDebug";
+import { hasInjectedProvider, isMobile, isAndroidWebView } from "../utils/device";
 
 export default function WalletConnect() {
   const { address, isConnected } = useAccount();
@@ -9,10 +11,15 @@ export default function WalletConnect() {
   const { disconnect } = useDisconnect();
   const [connecting, setConnecting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [showConnectorMenu, setShowConnectorMenu] = useState(false);
 
   const isPending = connecting || wagmiPending;
 
-  const handleConnect = async () => {
+  const handleConnectorSelect = async (connectorId: string) => {
+    const connector = connectors.find((c) => c.id === connectorId);
+    if (!connector) return;
+
+    setShowConnectorMenu(false);
     setErrorMsg(null);
     setConnecting(true);
 
@@ -21,23 +28,23 @@ export default function WalletConnect() {
     }, 45000);
 
     try {
-      // Check if injected provider exists (e.g. mobile Web3 browser or extension)
-      const hasInjected = typeof window !== "undefined" && Boolean((window as any).ethereum);
-      const injectedConn = connectors.find((c) => c.id === "injected");
-      const walletConnectConn = connectors.find((c) => c.id === "walletConnect");
+      // Log connection attempt for debugging
+      const hasInjected = hasInjectedProvider();
+      const isMobileDevice = isMobile();
+      const isWebView = isAndroidWebView();
 
-      // In a Web3 browser, prefer injected for instant connection; otherwise use WalletConnect modal
-      const connectorToUse = hasInjected && injectedConn
-        ? injectedConn
-        : walletConnectConn || connectors[0];
+      logWalletConnectionAttempt({
+        connectorId: connector.id,
+        connectorType: connector.name,
+        hasInjected,
+        isMobile: isMobileDevice,
+        isWebView,
+        userAgent: typeof window !== "undefined" ? navigator.userAgent : "unknown",
+      });
 
-      if (!connectorToUse) {
-        throw new Error("No wallet connector available");
-      }
-
-      await connectAsync({ connector: connectorToUse });
+      await connectAsync({ connector });
     } catch (err: any) {
-      console.warn("Wallet connection error/cancelled:", err);
+      logWalletConnectionError(err, `Connector: ${connector.name} (${connector.id})`);
       const msg = err?.message || String(err);
       if (
         msg.includes("rejected") ||
@@ -59,6 +66,10 @@ export default function WalletConnect() {
       clearTimeout(timer);
       setConnecting(false);
     }
+  };
+
+  const handleConnect = () => {
+    setShowConnectorMenu(true);
   };
 
   return (
@@ -106,6 +117,58 @@ export default function WalletConnect() {
           </button>
         </div>
       </div>
+
+      {showConnectorMenu && (
+        <div className="app-panel mt-2">
+          <p className="text-sm font-semibold mb-2">Select Connection Method</p>
+          <div className="flex flex-col gap-2">
+            {connectors.map((connector) => {
+              const hasInjected = hasInjectedProvider();
+              const isMobileDevice = isMobile();
+              
+              let label = connector.name;
+              let recommended = false;
+              
+              if (connector.id === "injected" && hasInjected) {
+                label = "Browser Wallet";
+                recommended = true;
+              } else if (connector.id === "walletConnect") {
+                label = "WalletConnect";
+                if (!hasInjected || isMobileDevice) {
+                  recommended = true;
+                }
+              } else if (connector.id === "coinbaseWallet") {
+                label = "Coinbase Wallet";
+              }
+              
+              return (
+                <button
+                  key={connector.id}
+                  type="button"
+                  onClick={() => handleConnectorSelect(connector.id)}
+                  className={`px-3 py-2 rounded-md text-sm font-semibold text-left transition ${
+                    recommended
+                      ? "bg-gradient-to-r from-teal to-mint text-ink hover:opacity-90"
+                      : "bg-white/10 text-white/80 hover:bg-white/20"
+                  }`}
+                >
+                  {label}
+                  {recommended && (
+                    <span className="text-xs ml-2 opacity-75">(Recommended)</span>
+                  )}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setShowConnectorMenu(false)}
+              className="px-3 py-2 rounded-md text-sm font-semibold text-white/60 hover:text-white/80 transition"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

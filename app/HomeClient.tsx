@@ -838,19 +838,10 @@ export default function HomeClient() {
                   <h2 className="text-xl font-bold text-text">
                     Mint Premium Pass
                   </h2>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-positive/10 text-positive border border-positive/20">
-                    <span className="w-1.5 h-1.5 rounded-full bg-positive" />
-                    Verified
-                  </span>
                 </div>
                 <p className="text-muted text-xs mt-0.5">
                   {totalMaxSupply ? `${totalMaxSupply.toLocaleString()} total · 4 rarities` : "Fetching supply…"}
                 </p>
-              </div>
-              <div className="text-right">
-                <span className="text-[11px] font-mono text-muted">
-                  {address.slice(0, 6)}...{address.slice(-4)}
-                </span>
               </div>
             </div>
 

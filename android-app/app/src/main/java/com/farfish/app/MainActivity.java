@@ -120,6 +120,10 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setDomStorageEnabled(true);
         webSettings.setDatabaseEnabled(true);
         
+        // Set explicit database path for persistence
+        String databasePath = getApplicationContext().getDir("database", MODE_PRIVATE).getPath();
+        webSettings.setDatabasePath(databasePath);
+        
         // Security
         webSettings.setAllowFileAccess(false);
         webSettings.setAllowContentAccess(true);
@@ -319,9 +323,13 @@ public class MainActivity extends AppCompatActivity {
             Uri uri = intent.getData();
             if (uri != null) {
                 String url = uri.toString();
-                if (url.startsWith("wc:") || url.startsWith("farfish:")) {
-                    // Handle deep link
-                    webView.loadUrl("javascript:window.dispatchEvent(new CustomEvent('deeplink', {detail: '" + url + "'}))");
+                android.util.Log.d("WalletConnect", "Deep link received: " + url);
+                if (url.startsWith("wc:") || url.startsWith("farfish://wc")) {
+                    final String jsUrl = url.replace("'", "\\'");
+                    webView.evaluateJavascript(
+                        "window.dispatchEvent(new CustomEvent('walletconnect', {detail: '" + jsUrl + "'}));",
+                        null
+                    );
                 }
             }
         }

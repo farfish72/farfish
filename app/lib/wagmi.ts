@@ -3,6 +3,7 @@
 import { http, createConfig, fallback } from "wagmi";
 import { base, mainnet } from "viem/chains";
 import { walletConnect, injected, coinbaseWallet } from "wagmi/connectors";
+import { isMobile } from "../utils/device";
 
 const projectId =
   process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "6829b9ad661ef487af4d0c1bb5aa4a9e";

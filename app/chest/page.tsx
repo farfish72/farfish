@@ -306,7 +306,7 @@ export default function ChestPage() {
 
       <div className="mt-4 space-y-4 flex-1">
         {/* Daily Streak Indicator */}
-        {trustAnchorData.streak && trustAnchorData.streak > 0 && (
+        {trustAnchorData.streak !== null && trustAnchorData.streak > 0 && (
           <div className="app-panel border-orange-400/30">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
