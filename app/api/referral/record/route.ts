@@ -65,16 +65,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, alreadyRecorded: true });
     }
 
-    // Derive referrer wallet deterministically from refCode
-    // refCode = last 8 chars of referrer's wallet address
     let referrer: string;
     
-    // First try the cache for performance
+    // Resolve both dedicated referral-code records and preserved legacy
+    // refcode records through the same lookup key.
     const cachedReferrerWallet = await getKey<string>(`refcode:${refCode}`);
     if (cachedReferrerWallet) {
       referrer = cachedReferrerWallet.toLowerCase();
     } else {
-      // Cache miss - rebuild from existing data sources
+      // Cache miss - rebuild from existing legacy data sources.
       // Look through all known wallets to find one ending with refCode
       let matchingReferrer: string | null = null;
       
@@ -126,8 +125,13 @@ export async function POST(req: NextRequest) {
       
       if (matchingReferrer) {
         referrer = matchingReferrer.toLowerCase();
-        // Rebuild the cache entry for future lookups
+        // Rebuild the legacy mapping and preserve a dedicated record.
         await setKey(`refcode:${refCode}`, referrer);
+        const dedicatedCodeKey = `referral-code:${referrer}`;
+        const existingDedicatedCode = await getKey<string>(dedicatedCodeKey);
+        if (!existingDedicatedCode) {
+          await setKey(dedicatedCodeKey, refCode);
+        }
       } else {
         // No existing wallet found - this could be a first-time referrer
         // Since we can't safely reconstruct the full wallet from 8 chars,
