@@ -34,6 +34,7 @@ export default function LeaderboardPage() {
         throw new Error(text || "Failed to load leaderboard");
       }
       const data = (await res.json()) as any[];
+      console.log('Leaderboard API returned:', data.length, 'entries');
       
       // Transform data: use rewards from API directly
       const transformed: LeaderboardEntry[] = data.map((entry) => ({
@@ -43,26 +44,20 @@ export default function LeaderboardPage() {
         rewards: entry.rewards || 0,
       }));
       
-      setEntries(transformed);
-
-      // Fetch user's own rank if connected
+      // Find user's entry from the full transformed array if connected
       if (address) {
-        try {
-          const userRes = await fetch(`/api/leaderboard/user?wallet=${address}`, { cache: "no-store" });
-          if (userRes.ok) {
-            const userData = await userRes.json();
-            const userEntry: LeaderboardEntry = {
-              rank: userData.rank || 0,
-              wallet: userData.wallet || address,
-              referrals_count: userData.referrals_count || 0,
-              rewards: userData.rewards || 0,
-            };
-            setUserEntry(userEntry);
-          }
-        } catch (error) {
-          console.error("Failed to fetch user rank:", error);
-        }
+        const foundUserEntry = transformed.find(
+          (entry) => entry.wallet.toLowerCase() === address.toLowerCase()
+        );
+        setUserEntry(foundUserEntry || null);
+      } else {
+        setUserEntry(null);
       }
+      
+      // Limit to top 100
+      const top100 = transformed.slice(0, 100);
+      console.log(`Leaderboard: showing ${top100.length} of ${transformed.length} total entries (limited to top 100)`);
+      setEntries(top100);
     } catch (error) {
       console.error("Failed to fetch leaderboard", error);
       setToast({ type: "error", message: "Could not load leaderboard. Please try again." });
@@ -125,19 +120,13 @@ export default function LeaderboardPage() {
                     </td>
                   </tr>
                 )}
-                {!loading && entries.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="py-4 text-center text-white/60">
-                      No referrals yet.
-                    </td>
-                  </tr>
-                )}
+
                 {!loading &&
                   entries.map((entry) => {
                     const isUser = address && entry.wallet.toLowerCase() === address.toLowerCase();
                     return (
                       <tr 
-                        key={entry.rank} 
+                        key={entry.wallet} 
                         className={`hover:bg-muted/5 transition ${isUser ? "bg-teal/10" : ""}`}
                       >
                         <td className="py-2 pr-3 font-semibold">{entry.rank}</td>
@@ -151,10 +140,10 @@ export default function LeaderboardPage() {
             </table>
           </div>
 
-          {/* Show user's own rank if outside top 100 */}
-          {userEntry && !entries.find((e) => e.wallet.toLowerCase() === address?.toLowerCase()) && (
+          {/* Show user's own rank ONLY if outside top 100 */}
+          {userEntry && userEntry.rank > 100 && (
             <div className="mt-4 pt-4 border-t border-white/10">
-              <h3 className="text-sm font-semibold mb-2 text-white/80">You</h3>
+              <h3 className="text-sm font-semibold mb-2 text-white/80">Your Rank</h3>
               <div className="rounded-lg border border-teal/30 bg-teal/5 p-3">
                 <div className="grid grid-cols-4 gap-2 text-sm">
                   <div>

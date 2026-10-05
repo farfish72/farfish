@@ -25,6 +25,8 @@ const getAllUsers = async (): Promise<string[]> => {
   try {
     // 1. Get all referred users from referral:* keys
     const referralKeys = await keys("referral:*");
+    console.log(`📊 [LEADERBOARD] Found ${referralKeys.length} referral:* keys`);
+    
     for (const key of referralKeys) {
       const wallet = key.replace("referral:", "");
       if (wallet && /^0x[a-fA-F0-9]{40}$/i.test(wallet)) {
@@ -60,6 +62,8 @@ const getAllUsers = async (): Promise<string[]> => {
 
     // 3. Get all refcode owners from refcode:* values
     const refcodeKeys = await keys("refcode:*");
+    console.log(`📊 [LEADERBOARD] Found ${refcodeKeys.length} refcode:* keys`);
+    
     for (const key of refcodeKeys) {
       try {
         const wallet = await getKey<string | null>(key);
@@ -70,8 +74,10 @@ const getAllUsers = async (): Promise<string[]> => {
         // Skip invalid entries
       }
     }
+    
+    console.log(`📊 [LEADERBOARD] Total unique users collected: ${allUsers.size}`);
   } catch (error) {
-    console.error("Error gathering all users:", error);
+    console.error("❌ [LEADERBOARD] Error gathering all users:", error);
   }
 
   return Array.from(allUsers);
@@ -81,6 +87,7 @@ export async function GET() {
   try {
     ensureReferralEnv();
   } catch (error: any) {
+    console.error("❌ [LEADERBOARD] Env check failed:", error.message);
     // Missing env/KV - return safe empty list
     return NextResponse.json([]);
   }
@@ -88,8 +95,10 @@ export async function GET() {
   try {
     // Get ALL unique users (not just referrers)
     const allUsers = await getAllUsers();
+    console.log(`✅ [LEADERBOARD] Found ${allUsers.length} total users`);
     
     if (!allUsers.length) {
+      console.log("ℹ️ [LEADERBOARD] No users found, returning empty array");
       return NextResponse.json([]);
     }
 
