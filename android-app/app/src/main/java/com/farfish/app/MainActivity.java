@@ -120,9 +120,7 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setDomStorageEnabled(true);
         webSettings.setDatabaseEnabled(true);
         
-        // Set explicit database path for persistence
-        String databasePath = getApplicationContext().getDir("database", MODE_PRIVATE).getPath();
-        webSettings.setDatabasePath(databasePath);
+
         
         // Security
         webSettings.setAllowFileAccess(false);
@@ -143,6 +141,11 @@ public class MainActivity extends AppCompatActivity {
         
         // Media
         webSettings.setMediaPlaybackRequiresUserGesture(false);
+        
+        // Enable cookies (required for Next.js session/auth)
+        android.webkit.CookieManager cookieManager = android.webkit.CookieManager.getInstance();
+        cookieManager.setAcceptCookie(true);
+        cookieManager.setAcceptThirdPartyCookies(webView, true);
         
         // JavaScript Interface
         webView.addJavascriptInterface(new WebAppInterface(this), "Android");
@@ -171,14 +174,24 @@ public class MainActivity extends AppCompatActivity {
                 }
                 
                 // Handle external links (open in browser)
-                if (!url.startsWith(APP_URL) && 
-                    (url.startsWith("http://") || url.startsWith("https://"))) {
+                // Use host-based matching instead of string prefix
+                Uri parsedUri = Uri.parse(url);
+                String host = parsedUri.getHost();
+                boolean isAppHost = host != null && 
+                    (host.equals("farfish.vercel.app") || host.endsWith(".farfish.vercel.app"));
+                
+                if (isAppHost) {
+                    // Internal app navigation — let WebView handle it
+                    return false;
+                }
+                if (url.startsWith("http://") || url.startsWith("https://")) {
+                    // External HTTP(S) link — open in browser
                     Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
                     startActivity(intent);
                     return true;
                 }
                 
-                // Load in WebView
+                // Non-http(s) schemes are already handled above
                 return false;
             }
 
