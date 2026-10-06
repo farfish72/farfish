@@ -59,7 +59,7 @@ const faqItems = [
   },
   {
     question: "7. How do referrals work?",
-    answer: "Share your referral link/code to earn 20 tokens per new user.",
+    answer: "Use a referral code when joining to earn 20 tokens! Share your code to help friends - you both earn 20 tokens each.",
   },
   {
     question: "8. When can I trade FRH?",

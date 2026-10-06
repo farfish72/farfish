@@ -148,40 +148,41 @@ export async function POST(req: NextRequest) {
     // Bind referrer -> referee exactly once
     await setKey(`referral:${wallet}`, payload);
 
-    // Increment unified referral count for referrer
-    const newCount = await incrKey(`refcount:${referrer}`);
+    // ✅ OPTION 2: Both referrer AND referee get rewards!
+    
+    // Increment referral count for referrer (they earned this!)
+    const referrerNewCount = await incrKey(`refcount:${referrer}`);
 
-    // ✨ NEW: Update sorted set for atomic leaderboard (CRITICAL!)
+    // Give 20 tokens to referrer (increment their leaderboard score)
     try {
       await upstashRequestDirect(`zincrby/leaderboard/1/${encodeURIComponent(referrer)}`, {
         method: 'POST'
       });
-      console.log(`✅ [REFERRAL] Updated sorted set for ${referrer}`);
+      console.log(`✅ [REFERRAL] Rewarded REFERRER ${referrer} with 20 tokens`);
     } catch (error) {
-      console.error(`⚠️ [REFERRAL] Failed to update sorted set:`, error);
-      // Continue - refcount is still updated
+      console.error(`⚠️ [REFERRAL] Failed to update sorted set for referrer:`, error);
     }
 
-    // Add new referee to sorted set with score 0 (if not exists)
+    // Give 20 tokens to referee (welcome bonus - no refcount change!)
     try {
-      await upstashRequestDirect(`zadd/leaderboard/nx/0/${encodeURIComponent(wallet)}`, {
+      await upstashRequestDirect(`zincrby/leaderboard/1/${encodeURIComponent(wallet)}`, {
         method: 'POST'
       });
+      console.log(`✅ [REFERRAL] Rewarded REFEREE ${wallet} with 20 tokens (welcome bonus)`);
     } catch (error) {
-      console.error(`⚠️ [REFERRAL] Failed to add referee to sorted set:`, error);
+      console.error(`⚠️ [REFERRAL] Failed to update sorted set for referee:`, error);
     }
 
     // Add referrer to set:referrers if this is their first referral (count becomes 1)
-    // This ensures they appear in leaderboard queries
-    if (newCount === 1) {
+    if (referrerNewCount === 1) {
       await sadd("set:referrers", referrer);
     }
 
-    console.log("[REFERRAL] Successfully recorded:", {
+    console.log("[REFERRAL] Successfully recorded (both rewarded!):", {
       referee: wallet, 
       referrer, 
       refCode, 
-      newReferrerCount: newCount 
+      referrerNewCount
     });
 
     return NextResponse.json({ success: true, referrer });

@@ -29,6 +29,27 @@ export default function useAutoBindReferral() {
     }
   }, []); // Run only once on mount
 
+  // Initialize user when wallet connects (creates refcode entry)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!isConnected || !address) return;
+
+    const initUser = async () => {
+      try {
+        await fetch("/api/user/init", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ wallet: address }),
+        });
+      } catch (error) {
+        console.error("User init failed:", error);
+        // Non-critical - don't block user experience
+      }
+    };
+
+    initUser();
+  }, [address, isConnected]);
+
   // Process referral when wallet connects
   useEffect(() => {
     if (typeof window === "undefined") return;

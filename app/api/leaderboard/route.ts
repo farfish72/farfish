@@ -19,7 +19,7 @@ export async function GET() {
   }
 
   try {
-    // Use sorted set for atomic leaderboard query (single Redis call!)
+    // Use sorted set for leaderboard (shows TOTAL rewards earned)
     const result = await upstashRequest<(string | number)[] | null>('zrevrange/leaderboard/0/-1/WITHSCORES');
     
     if (!result || !Array.isArray(result) || result.length === 0) {
@@ -27,21 +27,31 @@ export async function GET() {
       return NextResponse.json([]);
     }
 
-    // Parse sorted set result: [wallet1, score1, wallet2, score2, ...]
+    // Parse sorted set result: [wallet1, totalRewards1, wallet2, totalRewards2, ...]
+    // totalRewards = how many times they got 20 tokens (as referrer OR referee)
     const leaderboard: LeaderboardRow[] = [];
     for (let i = 0; i < result.length; i += 2) {
       const wallet = String(result[i]);
-      const referrals_count = Number(result[i + 1]);
+      const rewardCount = Number(result[i + 1]); // How many 20 FRH rewards earned
+      
+      // Get actual referral count from refcount key for display
+      let referrals_count = 0;
+      try {
+        const refcountResult = await upstashRequest<number | null>(`get/refcount:${wallet}`);
+        referrals_count = refcountResult || 0;
+      } catch (error) {
+        console.warn(`⚠️ [LEADERBOARD] Could not fetch refcount for ${wallet}`);
+      }
       
       leaderboard.push({
         rank: Math.floor(i / 2) + 1,
         wallet,
-        referrals_count,
-        rewards: referrals_count * 20,
+        referrals_count, // Actual referrals (for display)
+        rewards: rewardCount * 20, // Total FRH earned
       });
     }
 
-    console.log(`✅ [LEADERBOARD] Returned ${leaderboard.length} users from sorted set`);
+    console.log(`✅ [LEADERBOARD] Returned ${leaderboard.length} users (sorted by total rewards)`);
     return NextResponse.json(leaderboard);
   } catch (error: any) {
     console.error("❌ [LEADERBOARD] Failed:", error);
