@@ -40,19 +40,12 @@ export default function useAutoBindReferral() {
     // Only record once per wallet connection
     if (hasRecorded.current) return;
 
-    const registerAndRecordReferral = async () => {
+    // Read referral code from localStorage (cached on page load)
+    const cachedRefCode = localStorage.getItem(REFERRAL_CACHE_KEY);
+    if (!cachedRefCode || cachedRefCode.length !== 8) return;
+
+    const recordReferral = async () => {
       try {
-        // Ensure this wallet has a stable dedicated code before it is shared.
-        const linkResponse = await fetch(`/api/referral/link?user=${address}`, {
-          cache: "no-store",
-        });
-        if (!linkResponse.ok) {
-          console.error("Referral code registration failed:", linkResponse.status, linkResponse.statusText);
-        }
-
-        const cachedRefCode = localStorage.getItem(REFERRAL_CACHE_KEY);
-        if (!cachedRefCode || cachedRefCode.length !== 8) return;
-
         const res = await fetch("/api/referral/record", {
           method: "POST",
           headers: {
@@ -81,6 +74,6 @@ export default function useAutoBindReferral() {
       }
     };
 
-    registerAndRecordReferral();
+    recordReferral();
   }, [address, isConnected]);
 }

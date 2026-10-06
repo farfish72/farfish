@@ -201,7 +201,6 @@ function ProfilePageContent() {
   const [toast, setToast] = useState<ToastState>(null);
   const { stakes } = useUserStakes();
   const [isConnectingManual, setIsConnectingManual] = useState(false);
-  const [referralCode, setReferralCode] = useState("");
 
   const isConnecting = isConnectingManual || isConnectPending;
 
@@ -211,38 +210,10 @@ function ProfilePageContent() {
 
   const isBaseNetwork = chainId === base.id;
 
-  useEffect(() => {
-    if (!address) {
-      setReferralCode("");
-      return;
-    }
-
-    let cancelled = false;
-    fetch(`/api/referral/link?user=${address}`, { cache: "no-store" })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`Referral code request failed (${res.status})`);
-        return res.json();
-      })
-      .then((data: { link?: string }) => {
-        if (cancelled || !data.link) return;
-        const code = new URL(data.link).searchParams.get("ref");
-        if (code) setReferralCode(code);
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          console.error("Failed to load referral code:", error);
-          setReferralCode(address.slice(-8).toLowerCase());
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [address]);
-
-  const getReferralCode = () => {
+  // Get User ID from wallet address (Rank page pattern)
+  const getUserId = () => {
     if (!address) return "Guest";
-    return referralCode || address.slice(-8).toLowerCase();
+    return address.slice(-8).toLowerCase();
   };
 
   // Handle wallet disconnect
@@ -251,12 +222,13 @@ function ProfilePageContent() {
     showSuccess("Wallet disconnected");
   };
 
-  const handleCopyReferralCode = () => {
-    const code = getReferralCode();
-    navigator.clipboard.writeText(code).then(() => {
-      showSuccess("Referral code copied!");
+  // Handle copy User ID
+  const handleCopyUserId = () => {
+    const userId = getUserId();
+    navigator.clipboard.writeText(userId).then(() => {
+      showSuccess("User ID copied!");
     }).catch(() => {
-      showError("Failed to copy referral code");
+      showError("Failed to copy User ID");
     });
   };
 
@@ -463,14 +435,14 @@ function ProfilePageContent() {
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="text-lg font-bold text-white">
-                    Referral code: {getReferralCode()}
+                    User ID: {getUserId()}
                   </div>
                   {/* NO teal/mint ring: disconnect and copy/clipboard icons are excluded from ring styling */}
                   <button
-                    onClick={handleCopyReferralCode}
-                    aria-label="Copy referral code"
+                    onClick={handleCopyUserId}
+                    aria-label="Copy User ID"
                     className="inline-flex items-center justify-center p-0 !bg-transparent !border-0 hover:opacity-80 transition"
-                    title="Copy referral code"
+                    title="Copy User ID"
                   >
                     <Copy size={16} weight="bold" className="text-white" />
                   </button>
@@ -479,7 +451,7 @@ function ProfilePageContent() {
                   Tier: {getTier()}
                 </div>
                 <div className="text-xs text-white/50">
-                  Share this code with people you refer.
+                  Referral code is your User ID.
                 </div>
               </div>
             </div>

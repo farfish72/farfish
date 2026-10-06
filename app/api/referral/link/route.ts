@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { randomBytes } from "crypto";
 import { ensureReferralEnv } from "../../../config/referral";
 import { getKey, setKey } from "../../../../lib/upstash";
 
 const walletRegex = /^0x[a-fA-F0-9]{40}$/;
 
 export const dynamic = "force-dynamic";
-
-const createReferralCode = () => randomBytes(6).toString("hex").slice(0, 8);
 
 export async function GET(req: NextRequest) {
   const userFromHeader = req.headers.get("x-user-wallet")?.trim();
@@ -31,33 +28,10 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Keep each wallet's code stable. Adopt an existing legacy code when it
-    // already points to this wallet so existing links remain valid.
-    const dedicatedCodeKey = `referral-code:${wallet}`;
-    let refCode = await getKey<string>(dedicatedCodeKey);
-    const legacyCode = wallet.slice(-8).toLowerCase();
-    const legacyWallet = await getKey<string>(`refcode:${legacyCode}`);
+    // Generate refCode from wallet (last 8 chars)
+    const refCode = wallet.slice(-8).toLowerCase();
 
-    if (!refCode && legacyWallet?.toLowerCase() === wallet) {
-      refCode = legacyCode;
-    }
-
-    if (!refCode) {
-      for (let attempt = 0; attempt < 5; attempt += 1) {
-        const candidate = createReferralCode();
-        const existingWallet = await getKey<string>(`refcode:${candidate}`);
-        if (!existingWallet || existingWallet.toLowerCase() === wallet) {
-          refCode = candidate;
-          break;
-        }
-      }
-    }
-
-    if (!refCode) {
-      throw new Error("Unable to allocate a unique referral code");
-    }
-
-    await setKey(dedicatedCodeKey, refCode);
+    // Store refCode -> wallet mapping for lookup (KV stores full wallet)
     await setKey(`refcode:${refCode}`, wallet);
 
     const refRecordRaw = await getKey<string | null>(`referral:${wallet}`);

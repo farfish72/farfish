@@ -5,8 +5,8 @@ import { getKey } from "../../../../lib/upstash";
 export const dynamic = "force-dynamic";
 
 /**
- * Lookup wallet address by a stable referral code.
- * The refcode mapping also preserves compatibility with legacy wallet-ending codes.
+ * Lookup wallet address by refCode (last 8 chars of wallet)
+ * refCode is stored as key: refcode:xxxxxxxx -> wallet address
  */
 export async function GET(req: NextRequest) {
   try {
