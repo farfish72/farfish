@@ -32,14 +32,14 @@ export const wagmiConfig = createConfig({
       metadata: {
         name: "FarFISH",
         description: "Daily habit-building app on Base",
-        url: "https://farfish.vercel.app",
-        icons: ["https://farfish.vercel.app/farfish-logo.png"],
+        url: "https://app.farfish.xyz",
+        icons: ["https://app.farfish.xyz/farfish-logo.png"],
       },
       showQrModal: true,
     }),
     coinbaseWallet({
       appName: "FarFISH",
-      appLogoUrl: "https://farfish.vercel.app/farfish-logo.png",
+      appLogoUrl: "https://app.farfish.xyz/farfish-logo.png",
     }),
   ],
   ssr: true,

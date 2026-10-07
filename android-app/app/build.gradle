@@ -23,7 +23,7 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         // BuildConfig field for web app URL
-        buildConfigField "String", "APP_URL", "\"https://farfish.vercel.app\""
+        buildConfigField "String", "APP_URL", "\"https://app.farfish.xyz\""
     }
 
     signingConfigs {

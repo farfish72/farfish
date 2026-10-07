@@ -31,8 +31,8 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 public class MainActivity extends AppCompatActivity {
 
-    // Vercel deployment URL for FarFISH web app
-    private static final String APP_URL = "https://farfish.vercel.app";
+    // Production URL for FarFISH web app
+    private static final String APP_URL = "https://app.farfish.xyz";
     private static final int FILE_CHOOSER_REQUEST_CODE = 1;
 
     private WebView webView;
@@ -178,7 +178,7 @@ public class MainActivity extends AppCompatActivity {
                 Uri parsedUri = Uri.parse(url);
                 String host = parsedUri.getHost();
                 boolean isAppHost = host != null && 
-                    (host.equals("farfish.vercel.app") || host.endsWith(".farfish.vercel.app"));
+                    (host.equals("app.farfish.xyz") || host.equals("farfish.vercel.app") || host.endsWith(".farfish.vercel.app"));
                 
                 if (isAppHost) {
                     // Internal app navigation — let WebView handle it

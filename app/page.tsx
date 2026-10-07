@@ -11,28 +11,28 @@ export const metadata: Metadata = {
     title: "FarFISH",
     description: "Mint. Stake. Earn. Dominate the Seas.",
     type: "website",
-    url: "https://farfish.vercel.app",
-    images: ["https://farfish.vercel.app/og-image.png"],
+    url: "https://app.farfish.xyz",
+    images: ["https://app.farfish.xyz/og-image.png"],
   },
 
   twitter: {
     card: "summary_large_image",
     title: "FarFISH",
     description: "Mint. Stake. Earn. Dominate the Seas.",
-    images: ["https://farfish.vercel.app/og-image.png"],
+    images: ["https://app.farfish.xyz/og-image.png"],
   },
 
   other: {
     "fc:miniapp": JSON.stringify({
       version: "1",
-      imageUrl: "https://farfish.vercel.app/og-image.png",
+      imageUrl: "https://app.farfish.xyz/og-image.png",
       button: {
         title: "Launch",
         action: {
           type: "launch_miniapp",
-          url: "https://farfish.vercel.app",
+          url: "https://app.farfish.xyz",
           name: "FarFISH",
-          splashImageUrl: "https://farfish.vercel.app/splash.png",
+          splashImageUrl: "https://app.farfish.xyz/splash.png",
           splashBackgroundColor: "#000000"
         }
       }
@@ -40,14 +40,14 @@ export const metadata: Metadata = {
 
     "fc:frame": JSON.stringify({
       version: "1",
-      imageUrl: "https://farfish.vercel.app/og-image.png",
+      imageUrl: "https://app.farfish.xyz/og-image.png",
       button: {
         title: "Launch",
         action: {
           type: "launch_frame",
-          url: "https://farfish.vercel.app",
+          url: "https://app.farfish.xyz",
           name: "FarFISH",
-          splashImageUrl: "https://farfish.vercel.app/splash.png",
+          splashImageUrl: "https://app.farfish.xyz/splash.png",
           splashBackgroundColor: "#000000"
         }
       }

@@ -41,7 +41,7 @@ This is a WebView wrapper that loads the FarFISH Next.js web app and provides na
 
 4. **Verify web app URL in MainActivity.java:**
    ```java
-   private static final String APP_URL = "https://farfish.vercel.app";
+   private static final String APP_URL = "https://app.farfish.xyz";
    ```
    (Already configured correctly)
 
@@ -101,12 +101,12 @@ android-app/
 
 **Method 1: Direct in MainActivity.java**
 ```java
-private static final String APP_URL = "https://farfish.vercel.app";
+private static final String APP_URL = "https://app.farfish.xyz";
 ```
 
 **Method 2: BuildConfig (app/build.gradle)**
 ```gradle
-buildConfigField "String", "APP_URL", "\"https://farfish.vercel.app\""
+buildConfigField "String", "APP_URL", "\"https://app.farfish.xyz\""
 ```
 Then in MainActivity.java:
 ```java
