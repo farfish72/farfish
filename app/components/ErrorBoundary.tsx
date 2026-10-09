@@ -24,13 +24,25 @@ export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, E
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Log full error details for developers
     console.error('Global Error Boundary caught an error:', {
       error: error.message,
       stack: error.stack,
       componentStack: errorInfo.componentStack,
       timestamp: new Date().toISOString(),
     });
+    
+    // Report to Android native layer if running in WebView
+    try {
+      if (typeof window !== 'undefined' && (window as any).Android?.reportError) {
+        (window as any).Android.reportError(
+          'ReactErrorBoundary',
+          error.message || 'Unknown error',
+          error.stack || ''
+        );
+      }
+    } catch (_) {
+      // Ignore bridge errors — don't let reporting cause another error
+    }
   }
 
   handleRefresh = () => {

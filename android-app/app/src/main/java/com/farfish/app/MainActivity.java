@@ -34,12 +34,17 @@ public class MainActivity extends AppCompatActivity {
     // Production URL for FarFISH web app
     private static final String APP_URL = "https://app.farfish.xyz";
     private static final int FILE_CHOOSER_REQUEST_CODE = 1;
+    private static final int PAGE_LOAD_TIMEOUT_MS = 15000; // 15 seconds
+    private static final int MAX_JS_ERRORS = 10;
 
     private WebView webView;
     private SwipeRefreshLayout swipeRefreshLayout;
     private ProgressBar progressBar;
     private ValueCallback<Uri[]> filePathCallback;
     private UpdateChecker updateChecker;
+    private android.os.Handler timeoutHandler = new android.os.Handler();
+    private Runnable timeoutRunnable;
+    private int jsErrorCount = 0;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -55,11 +60,25 @@ public class MainActivity extends AppCompatActivity {
 
         // Initialize views
         webView = findViewById(R.id.webView);
+        if (webView == null) {
+            android.util.Log.e("MainActivity", "WebView not found in layout");
+            Toast.makeText(this, "Failed to initialize app. Please restart.", Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
+        
         swipeRefreshLayout = findViewById(R.id.swipeRefreshLayout);
         progressBar = findViewById(R.id.progressBar);
 
         // Setup WebView
-        setupWebView();
+        try {
+            setupWebView();
+        } catch (Exception e) {
+            android.util.Log.e("MainActivity", "Failed to setup WebView", e);
+            Toast.makeText(this, "Failed to initialize app. Please restart.", Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
 
         // Setup pull-to-refresh
         swipeRefreshLayout.setOnRefreshListener(() -> {
@@ -164,10 +183,36 @@ public class MainActivity extends AppCompatActivity {
                     try {
                         startActivity(intent);
                         android.util.Log.d("WalletConnect", "Opened deep link: " + url);
+                    } catch (android.content.ActivityNotFoundException e) {
+                        android.util.Log.e("WalletConnect", "No app to handle: " + url, e);
+                        
+                        // Detect wallet type from URL scheme
+                        String walletName = "wallet app";
+                        if (url.contains("metamask")) walletName = "MetaMask";
+                        else if (url.contains("trust")) walletName = "Trust Wallet";
+                        else if (url.contains("coinbase")) walletName = "Coinbase Wallet";
+                        else if (url.contains("rainbow")) walletName = "Rainbow";
+                        
+                        final String finalWalletName = walletName;
+                        new AlertDialog.Builder(MainActivity.this)
+                            .setTitle("Wallet App Required")
+                            .setMessage("Please install " + finalWalletName + " to continue.\n\nWould you like to visit the app store?")
+                            .setPositiveButton("Install", (dialog, which) -> {
+                                Intent playStoreIntent = new Intent(Intent.ACTION_VIEW, 
+                                    Uri.parse("https://play.google.com/store/search?q=" + finalWalletName + "&c=apps"));
+                                startActivity(playStoreIntent);
+                            })
+                            .setNegativeButton("Cancel", null)
+                            .show();
+                    } catch (SecurityException e) {
+                        android.util.Log.e("WalletConnect", "Permission denied: " + url, e);
+                        Toast.makeText(MainActivity.this, 
+                            "Permission denied. Please check app permissions in Settings.", 
+                            Toast.LENGTH_LONG).show();
                     } catch (Exception e) {
                         android.util.Log.e("WalletConnect", "Failed to open deep link: " + url, e);
                         Toast.makeText(MainActivity.this, 
-                            "No app found to handle this link. Please install the required wallet app.", 
+                            "Failed to open wallet app: " + e.getMessage(), 
                             Toast.LENGTH_LONG).show();
                     }
                     return true;
@@ -199,12 +244,31 @@ public class MainActivity extends AppCompatActivity {
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
                 super.onPageStarted(view, url, favicon);
                 progressBar.setVisibility(View.VISIBLE);
+                
+                // Start timeout timer
+                if (timeoutRunnable != null) {
+                    timeoutHandler.removeCallbacks(timeoutRunnable);
+                }
+                timeoutRunnable = () -> {
+                    if (view.getProgress() < 100) {
+                        android.util.Log.e("WebView", "Page load timeout for: " + url);
+                        view.stopLoading();
+                        runOnUiThread(() -> showErrorPage("Connection Timeout", 
+                            "FarFISH is taking too long to load. Please check your connection and try again."));
+                    }
+                };
+                timeoutHandler.postDelayed(timeoutRunnable, PAGE_LOAD_TIMEOUT_MS);
             }
 
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 progressBar.setVisibility(View.GONE);
+                
+                // Cancel timeout
+                if (timeoutRunnable != null) {
+                    timeoutHandler.removeCallbacks(timeoutRunnable);
+                }
             }
 
             @Override
@@ -213,6 +277,32 @@ public class MainActivity extends AppCompatActivity {
                 super.onReceivedError(view, request, error);
                 if (request.isForMainFrame()) {
                     showErrorPage();
+                }
+            }
+
+            @Override
+            public void onReceivedHttpError(WebView view, WebResourceRequest request, 
+                                           android.webkit.WebResourceResponse errorResponse) {
+                super.onReceivedHttpError(view, request, errorResponse);
+                
+                if (request.isForMainFrame()) {
+                    int statusCode = errorResponse.getStatusCode();
+                    android.util.Log.e("WebView", "HTTP Error: " + statusCode + " for " + request.getUrl());
+                    
+                    String title = "Connection Error";
+                    String message = "Unable to load FarFISH. Please check your connection and try again.";
+                    
+                    if (statusCode >= 500) {
+                        title = "Server Temporarily Unavailable";
+                        message = "FarFISH servers are experiencing issues. Please try again in a few minutes.";
+                    } else if (statusCode == 404) {
+                        title = "Page Not Found";
+                        message = "The requested page could not be found. Please restart the app.";
+                    }
+                    
+                    final String finalTitle = title;
+                    final String finalMessage = message;
+                    runOnUiThread(() -> showErrorPage(finalTitle, finalMessage));
                 }
             }
 
@@ -231,11 +321,38 @@ public class MainActivity extends AppCompatActivity {
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
+                String message = consoleMessage.message();
                 // Log console messages for debugging
                 android.util.Log.d("WebView", 
-                    consoleMessage.message() + " -- From line " + 
+                    message + " -- From line " + 
                     consoleMessage.lineNumber() + " of " + 
                     consoleMessage.sourceId());
+                
+                // Detect critical errors - only count messages with critical patterns
+                if (consoleMessage.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
+                    // Check for critical error patterns as specified in plan
+                    boolean isCriticalError = message != null && (
+                        message.contains("Cannot read property") ||
+                        message.contains("undefined is not") ||
+                        message.contains("null is not") ||
+                        message.contains("hydration") ||
+                        message.contains("React")
+                    );
+                    
+                    if (isCriticalError) {
+                        jsErrorCount++;
+                        android.util.Log.e("WebView", "Critical JS Error count: " + jsErrorCount);
+                        
+                        if (jsErrorCount >= MAX_JS_ERRORS) {
+                            runOnUiThread(() -> {
+                                showErrorPage("App Error", 
+                                    "FarFISH encountered repeated errors. Please restart the app.");
+                                jsErrorCount = 0; // Reset counter
+                            });
+                        }
+                    }
+                }
+                
                 return true;
             }
 
@@ -342,6 +459,10 @@ public class MainActivity extends AppCompatActivity {
                 android.util.Log.d("WalletConnect", "Deep link received: " + url);
                 if (url.startsWith("wc:") || url.startsWith("farfish://wc")) {
                     final String jsUrl = url.replace("'", "\\'");
+                    if (webView == null) {
+                        android.util.Log.w("WalletConnect", "WebView not ready for deep link");
+                        return;
+                    }
                     webView.evaluateJavascript(
                         "window.dispatchEvent(new CustomEvent('walletconnect', {detail: '" + jsUrl + "'}));",
                         null
@@ -407,11 +528,15 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void showErrorPage() {
+        showErrorPage("Connection Error", "Unable to load FarFISH. Please check your connection.");
+    }
+
+    private void showErrorPage(String title, String message) {
         webView.loadData(
-            "<html><body style='margin:0;padding:20px;font-family:sans-serif;text-align:center;'>" +
-            "<h2 style='color:#FF6B6B;'>Connection Error</h2>" +
-            "<p>Unable to load FarFISH. Please check your connection.</p>" +
-            "<button onclick='window.location.reload()' style='padding:10px 20px;background:#14F195;border:none;border-radius:8px;font-size:16px;cursor:pointer;'>Retry</button>" +
+            "<html><body style='margin:0;padding:40px 20px;font-family:sans-serif;text-align:center;background:#0a0a0a;color:white;min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;'>" +
+            "<h2 style='color:#FF6B6B;margin-bottom:16px;font-size:24px;'>" + title + "</h2>" +
+            "<p style='color:#ccc;margin-bottom:24px;line-height:1.5;'>" + message + "</p>" +
+            "<button onclick='window.location.reload()' style='padding:12px 24px;background:#14F195;border:none;border-radius:8px;font-size:16px;cursor:pointer;color:#000;font-weight:bold;'>Retry</button>" +
             "</body></html>",
             "text/html",
             "UTF-8"
@@ -432,6 +557,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        timeoutHandler.removeCallbacksAndMessages(null);
         if (webView != null) {
             webView.destroy();
         }

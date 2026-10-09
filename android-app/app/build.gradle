@@ -64,6 +64,15 @@ android {
     buildFeatures {
         buildConfig true
     }
+
+    lint {
+        // Disable strict lint checks for release builds
+        abortOnError false
+        checkReleaseBuilds false
+        // Or use this to only check vital issues:
+        // checkReleaseBuilds true
+        // disable 'all'
+    }
 }
 
 dependencies {

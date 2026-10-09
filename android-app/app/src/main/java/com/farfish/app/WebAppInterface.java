@@ -48,9 +48,22 @@ public class WebAppInterface {
         }
 
         try {
-            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            Uri uri = Uri.parse(url);
+            
+            // Validate URI scheme
+            if (uri.getScheme() == null) {
+                throw new IllegalArgumentException("Invalid URL format: missing scheme");
+            }
+            
+            Intent intent = new Intent(Intent.ACTION_VIEW, uri);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             context.startActivity(intent);
+        } catch (IllegalArgumentException e) {
+            Toast.makeText(context, "Invalid URL format", Toast.LENGTH_SHORT).show();
+        } catch (android.content.ActivityNotFoundException e) {
+            Toast.makeText(context, "No app found to open this link", Toast.LENGTH_SHORT).show();
+        } catch (SecurityException e) {
+            Toast.makeText(context, "Permission denied", Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
             Toast.makeText(context, "Cannot open URL", Toast.LENGTH_SHORT).show();
         }
@@ -72,5 +85,57 @@ public class WebAppInterface {
     @JavascriptInterface
     public boolean isAndroidApp() {
         return true;
+    }
+
+    /**
+     * Report JavaScript errors from web app to native Android
+     * @param errorType Type of error (e.g., "UnhandledRejection", "WalletConnect")
+     * @param errorMessage Error message
+     * @param errorStack Stack trace (optional)
+     */
+    @JavascriptInterface
+    public void reportError(String errorType, String errorMessage, String errorStack) {
+        android.util.Log.e("WebApp", String.format("JS Error: %s - %s\n%s", 
+            errorType, errorMessage, errorStack != null ? errorStack : ""));
+        
+        // Show user-friendly error based on type
+        String userMessage = "An error occurred. Please try again.";
+        if (errorMessage != null && (errorMessage.toLowerCase().contains("invalid app configuration") || 
+            errorMessage.toLowerCase().contains("walletconnect"))) {
+            userMessage = "Wallet connection unavailable. Please check your network and try again.";
+        }
+        
+        final String finalMessage = userMessage;
+        ((android.app.Activity) context).runOnUiThread(() -> 
+            Toast.makeText(context, finalMessage, Toast.LENGTH_LONG).show()
+        );
+    }
+
+    /**
+     * Report WalletConnect initialization status
+     * @param status "success" or "failed"
+     * @param errorDetails Error details if failed (empty string if success)
+     */
+    @JavascriptInterface
+    public void checkWalletConnectStatus(String status, String errorDetails) {
+        if ("failed".equals(status)) {
+            android.util.Log.e("WalletConnect", "Initialization failed: " + errorDetails);
+            ((android.app.Activity) context).runOnUiThread(() -> 
+                Toast.makeText(context, 
+                    "Wallet connection is temporarily unavailable. Please try again later.", 
+                    Toast.LENGTH_LONG).show()
+            );
+        } else if ("success".equals(status)) {
+            android.util.Log.d("WalletConnect", "Initialization successful");
+        }
+    }
+
+    /**
+     * Report network connectivity status from web app
+     * @param status "online" or "offline"
+     */
+    @JavascriptInterface
+    public void reportNetworkStatus(String status) {
+        android.util.Log.d("NetworkStatus", "Network status changed: " + status);
     }
 }

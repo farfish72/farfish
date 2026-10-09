@@ -836,7 +836,7 @@ export default function HomeClient() {
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="text-xl font-bold text-text">
-                    Mint Premium Pass
+                    Get Your NFT
                   </h2>
                 </div>
                 <p className="text-muted text-xs mt-0.5">

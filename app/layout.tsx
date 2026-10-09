@@ -9,6 +9,8 @@ import AutoBindReferral from "./components/AutoBindReferral";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ToastProvider from "./providers/ToastProvider";
 import AppStateProvider from "./providers/AppStateProvider";
+import { NetworkStatus } from "./components/NetworkStatus";
+import { GlobalEventListeners } from "./components/GlobalEventListeners";
 
 export const metadata: Metadata = {
   icons: {
@@ -26,6 +28,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen flex flex-col relative items-center overflow-x-hidden text-white">
+        <NetworkStatus />
+        <GlobalEventListeners />
         <ErrorBoundary>
           <WalletProvider>
             <AppStateProvider>

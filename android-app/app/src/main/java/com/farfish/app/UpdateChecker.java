@@ -36,6 +36,7 @@ public class UpdateChecker {
     private Activity activity;
     private long downloadId = -1;
     private BroadcastReceiver downloadReceiver;
+    private boolean receiverRegistered = false;
 
     public UpdateChecker(Activity activity) {
         this.activity = activity;
@@ -106,8 +107,14 @@ public class UpdateChecker {
                     Log.e(TAG, "GitHub API request failed: " + responseCode);
                 }
                 connection.disconnect();
+            } catch (java.net.UnknownHostException e) {
+                Log.w(TAG, "No network for update check");
+            } catch (java.net.SocketTimeoutException e) {
+                Log.w(TAG, "Update check timed out");
+            } catch (org.json.JSONException e) {
+                Log.e(TAG, "Failed to parse release data", e);
             } catch (Exception e) {
-                Log.e(TAG, "Error checking for updates", e);
+                Log.e(TAG, "Unexpected error checking updates", e);
             }
         }).start();
     }
@@ -192,6 +199,7 @@ public class UpdateChecker {
             };
             
             activity.registerReceiver(downloadReceiver, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
+            receiverRegistered = true;
             
         } catch (Exception e) {
             Log.e(TAG, "Error downloading update", e);
@@ -258,10 +266,13 @@ public class UpdateChecker {
      */
     public void cleanup() {
         try {
-            if (downloadReceiver != null) {
+            if (downloadReceiver != null && receiverRegistered) {
                 activity.unregisterReceiver(downloadReceiver);
                 downloadReceiver = null;
+                receiverRegistered = false;
             }
+        } catch (IllegalArgumentException e) {
+            Log.w(TAG, "Receiver was not registered", e);
         } catch (Exception e) {
             Log.e(TAG, "Error during cleanup", e);
         }
